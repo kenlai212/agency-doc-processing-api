@@ -9,6 +9,7 @@ import { ExtractionJob } from './extractionJobs/extractionJob.entity';
 import { UploadedDocumentsModule } from './uploadedDocuments/uploadedDocuments.module';
 import { ExtractionJobsModule } from './extractionJobs/extractionJobs.module';
 import { KafkaConsumersModule } from './kafkaConsumers/kafka.consumers.module';
+import { ClientsModule, Transport } from '@nestjs/microservices';
 
 @Module({
   providers: [

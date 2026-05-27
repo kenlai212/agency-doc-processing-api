@@ -18,7 +18,7 @@ import { ConfigService } from "@nestjs/config";
                     transport: Transport.KAFKA,
                     options: {
                         client: {
-                            clientId: 'agency-actors-api',
+                            clientId: 'agency-doc-processing-api',
                             brokers: configService.get("kafka.brokers"),
                         },
                         producer: {

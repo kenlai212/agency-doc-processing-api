@@ -2,7 +2,7 @@ import { Controller, Logger } from "@nestjs/common";
 import { ExtractionJobsService } from "../extractionJobs/extractionJobs.service";
 import { Ctx, EventPattern, KafkaContext, Payload } from "@nestjs/microservices";
 import { UploadedDocumentKafkaTopics } from "../uploadedDocuments/kafka.producer";
-import { KafkaConsumerService } from "./kafka.consumer";
+import { KafkaConsumerService } from "./kafka.consumers";
 
 @Controller()
 export class ExtractionJobsConsumer extends KafkaConsumerService {

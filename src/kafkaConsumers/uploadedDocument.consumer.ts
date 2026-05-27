@@ -2,7 +2,7 @@ import { Controller, Logger } from '@nestjs/common';
 import { Ctx, EventPattern, KafkaContext, Payload } from '@nestjs/microservices';
 import { UploadedDocumentKafkaTopics } from '../uploadedDocuments/kafka.producer';
 import { UploadedDocumentsService } from '../uploadedDocuments/uploadedDocuments.service';
-import { KafkaConsumerService } from './kafka.consumer';
+import { KafkaConsumerService } from './kafka.consumers';
 import { ExtractionJobsService } from '../extractionJobs/extractionJobs.service';
 
 @Controller()
