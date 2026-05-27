@@ -1,0 +1,32 @@
+name: Build
+run-name: Build triggered by ${{ github.actor }}
+on:
+  push:
+    branches:
+      - "*"
+jobs:
+  push_to_registry:
+    name: Building from branch.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Login in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Extract version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+
+      - name: Build from ${{ github.event.workflow_run.head_branch }} and push Docker image tag ${{env.version}}
+        id: push
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/agency-doc-processing-api:${{env.version}}
