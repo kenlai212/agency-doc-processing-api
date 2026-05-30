@@ -23,7 +23,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
       isGlobal: true,
       load: [configuration],
     }),
-    TypeOrmModule.forRootAsync({
+    /*TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         type: 'mysql',
@@ -38,6 +38,22 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
         ],
         synchronize: true,
         logging: configService.get("database.logging"),
+      }),
+      inject: [ConfigService]
+    }),*/
+    TypeOrmModule.forRootAsync({
+      //name: "mongo",
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        type: 'mongodb',
+        url: 'mongodb://ken:Maxsteel1596@127.0.0.1:27017/agency-doc-processing-api?authSource=admin',
+        entities: [
+          UploadedDocument,
+          ExtractionJob
+        ],
+        synchronize: true,
+        useUnifiedTopology: true,
+        useNewUrlParser: true,
       }),
       inject: [ConfigService]
     }),

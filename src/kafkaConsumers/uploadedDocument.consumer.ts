@@ -3,15 +3,13 @@ import { Ctx, EventPattern, KafkaContext, Payload } from '@nestjs/microservices'
 import { UploadedDocumentKafkaTopics } from '../uploadedDocuments/kafka.producer';
 import { UploadedDocumentsService } from '../uploadedDocuments/uploadedDocuments.service';
 import { KafkaConsumerService } from './kafka.consumers';
-import { ExtractionJobsService } from '../extractionJobs/extractionJobs.service';
 
 @Controller()
 export class UploadedDocumentsConsumer extends KafkaConsumerService {
     readonly logger: Logger = new Logger(this.constructor.name)
 
     constructor(
-        private readonly uploadedDocumentsService: UploadedDocumentsService,
-        //private readonly extractionJobsService: ExtractionJobsService
+        private readonly uploadedDocumentsService: UploadedDocumentsService
     ) {
         super();
     }

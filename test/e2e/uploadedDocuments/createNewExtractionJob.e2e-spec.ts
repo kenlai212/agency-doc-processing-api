@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { ExtractionJobsService, ExtractionJobType } from '../../../src/uploadedDocuments/extractionJobs.service';
+import { ExtractionJobsService, ExtractionJobType } from '../../../src/extractionJobs/extractionJobs.service';
 import { ExtractionJob } from '../../../src/uploadedDocuments/extractionJob.entity';
 import { UploadedDocumentType } from '../../../src/uploadedDocuments/uploadedDocument.entity';
 import { Test, TestingModule } from '@nestjs/testing';

@@ -1,4 +1,5 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { ExtractionJob } from "../extractionJobs/extractionJob.entity";
 
 export enum UploadedDocumentType {
     CERTIFICATION_PROOF = "CERTIFICATION_PROOF",
@@ -83,4 +84,7 @@ export class UploadedDocument {
         enum: UploadedDocumentStatus,
     })
     status: UploadedDocumentStatus;
+
+    @Column(() => ExtractionJob)
+    extractionJobs: ExtractionJob[];
 }

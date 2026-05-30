@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { StorageFacility, UploadedDocumentStatus, UploadedDocumentType } from "./uploadedDocument.entity";
 import { IsDate, IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from "class-validator";
+import { ExtractionJobDTO } from "../extractionJobs/extractionJobs.dtos";
 
 export class UploadedDocumentDTO {
     @ApiPropertyOptional({
@@ -55,6 +56,11 @@ export class UploadedDocumentDTO {
         description: `Document Base64 string`,
     })
     documentBase64: string;
+
+    @ApiProperty({
+        description: `List of Extraction Jobs`,
+    })
+    extractionJobs: ExtractionJobDTO[];
 }
 
 export class UploadDocumentRequestDTO {

@@ -6,6 +6,7 @@ import { SearchUploadedDocumentsRequestDTO, SearchUploadedDocumentsResponseDTO, 
 import { validate } from "class-validator";
 import { KafkaProducerService, UploadedDocumentKafkaTopics } from "./kafka.producer";
 import { DataSource } from "typeorm";
+import { ExtractionJobDTO } from "../extractionJobs/extractionJobs.dtos";
 
 @Injectable()
 export class UploadedDocumentsService {
@@ -41,7 +42,7 @@ export class UploadedDocumentsService {
         entity.documentBase64 = dto.documentBase64;
 
         return await this.dataSource.transaction(async (entityManager) => {
-            entity = await this.entityRepository.save(entity)
+            entity = await entityManager.save(entity)
                 .catch((error) => {
                     this.logger.error(error.stack);
                     throw new InternalServerErrorException("uploadNewDocument() not available");
@@ -87,17 +88,23 @@ export class UploadedDocumentsService {
 
     async callexternalFileScanService(uploadedDocumentId: string): Promise<UploadedDocumentDTO> {
         let entity = await this.findUploadedDocumentEntity(uploadedDocumentId);
-
-        //todo call file scan api
-
         entity.status = UploadedDocumentStatus.SCANNED;
 
+        //ACID transaction: call file scan api +  publish SECURITY_SCAN event + save record
         return await this.dataSource.transaction(async (entityManager) => {
+            //todo call file scan api
+
             await this.kafkaProducerService.produce(UploadedDocumentKafkaTopics.SECURITY_SCAN, {
                 uploadedDocumentId: entity.uploadedDocumentId
             });
 
-            return this.saveUploadedDocument(entity);
+            entity = await entityManager.save(entity)
+                .catch((error) => {
+                    this.logger.error(error.stack);
+                    throw new InternalServerErrorException("saveUploadedDocument() not available");
+                });
+
+            return this.entityToDTO(entity);
         });
     }
 
@@ -112,26 +119,29 @@ export class UploadedDocumentsService {
 
         entity.status = UploadedDocumentStatus.UPLOADED;
 
-        /*await this.kafkaProducerService.produce(UploadedDocumentKafkaTopics.STORAGE_COMPLETE, {
-            uploadedDocumentId: entity.uploadedDocumentId
-        });*/
+        //ACID transaction: call storage api +  publish STORAGE_COMPLETE event + save record
+        return await this.dataSource.transaction(async (entityManager) => {
+            //TODO call doc store API
 
-        return this.saveUploadedDocument(entity);
-    }
+            await this.kafkaProducerService.produce(UploadedDocumentKafkaTopics.STORAGE_COMPLETE, {
+                uploadedDocumentId: entity.uploadedDocumentId
+            });
 
-    async updateStatus(uploadedDocumentId: string, status: UploadedDocumentStatus) {
-        let entity = await this.findUploadedDocumentEntity(uploadedDocumentId);
+            entity = await entityManager.save(entity)
+                .catch((error) => {
+                    this.logger.error(error.stack);
+                    throw new InternalServerErrorException("saveUploadedDocument() not available");
+                });
 
-        entity.status = status;
-
-        return this.saveUploadedDocument(entity);
+            return this.entityToDTO(entity);
+        });
     }
 
     private async validateActorId(actorId: string) {
         return true
     }
 
-    private async findUploadedDocumentEntity(uploadedDocumentId: string): Promise<UploadedDocument> {
+    async findUploadedDocumentEntity(uploadedDocumentId: string): Promise<UploadedDocument> {
         let entity = await this.entityRepository.findOne({ where: { uploadedDocumentId } })
             .catch((error) => {
                 this.logger.error(error.stack);
@@ -142,29 +152,6 @@ export class UploadedDocumentsService {
             throw new BadRequestException(`Invalid uploadedDocumentId: ${uploadedDocumentId}`);
 
         return entity;
-    }
-
-    async getUploadedDocument(uploadedDocumentId: string): Promise<UploadedDocumentDTO> {
-        let entity = await this.entityRepository.findOne({ where: { uploadedDocumentId } })
-            .catch((error) => {
-                this.logger.error(error.stack);
-                throw new InternalServerErrorException("getUploadedDocument() not available");
-            });
-
-        if (!entity)
-            throw new BadRequestException(`Invalid uploadedDocumentId: ${uploadedDocumentId}`);
-
-        return this.entityToDTO(entity);
-    }
-
-    private async saveUploadedDocument(entity: UploadedDocument): Promise<UploadedDocumentDTO> {
-        entity = await this.entityRepository.save(entity)
-            .catch((error) => {
-                this.logger.error(error.stack);
-                throw new InternalServerErrorException("saveUploadedDocument() not available");
-            });
-
-        return this.entityToDTO(entity);
     }
 
     entityToDTO(entity: UploadedDocument): UploadedDocumentDTO {
@@ -178,6 +165,15 @@ export class UploadedDocumentsService {
         dto.uploadedAt = entity.createdAt;
         dto.status = entity.status;
         dto.documentBase64 = entity.documentBase64;
+
+        dto.extractionJobs = []
+        entity.extractionJobs.forEach(element => {
+            let edto = new ExtractionJobDTO();
+            edto.extractionJobId = element.extractionJobId;
+            edto.extractionJobTemplateId = element.externalExtractionJobTemplateId;
+            edto.uploadedAt = element.createdAt;
+            edto.extractionResult = element.extractionResult;
+        });
 
         return dto;
     }

@@ -1,8 +1,8 @@
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { ExtractionJob } from "../../../src/uploadedDocuments/extractionJob.entity";
+import { ExtractionJob } from "../../../src/extractionJobs/extractionJob.entity";
 import * as dotenv from 'dotenv';
 import { Test, TestingModule } from "@nestjs/testing";
-import { ExtractionJobsService } from "../../../src/uploadedDocuments/extractionJobs.service";
+import { ExtractionJobsService } from "../../../src/extractionJobs/extractionJobs.service";
 import { UploadedDocumentsService } from "../../../src/uploadedDocuments/uploadedDocuments.service";
 import { UploadedDocument } from "../../../src/uploadedDocuments/uploadedDocument.entity";
 

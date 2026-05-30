@@ -3,10 +3,11 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { ExtractionJob } from "./extractionJob.entity";
 import { randomUUID } from 'crypto';
-import { ExtractionJobDTO, NewExtractionJobRequestDTO, SearchExtractionJobsRequestDTO } from "./extractionJobs.dtos";
 import { ExtractionJobsProducerService, UploadedDocumentKafkaTopics } from "./extractionJobs.producer";
-import { UploadedDocumentStatus, UploadedDocumentType } from "../uploadedDocuments/uploadedDocument.entity";
+import { UploadedDocument, UploadedDocumentStatus, UploadedDocumentType } from "../uploadedDocuments/uploadedDocument.entity";
 import { UploadedDocumentsService } from "../uploadedDocuments/uploadedDocuments.service";
+import { DataSource } from "typeorm/browser";
+import { UploadedDocumentDTO } from "../uploadedDocuments/uploadedDocuments.dtos";
 
 export enum ExtractionJobType {
     CLASSIFICATION = "CLASSIFICATION",
@@ -20,46 +21,76 @@ export class ExtractionJobsService {
 
     constructor(
         @InjectRepository(ExtractionJob)
-        private readonly entityRepository: Repository<ExtractionJob>,
+        private readonly entityRepository: Repository<UploadedDocument>,
         private readonly kafkaProducerService: ExtractionJobsProducerService,
-        private readonly uploadedDocumentsService: UploadedDocumentsService
+        private readonly uploadedDocumentsService: UploadedDocumentsService,
+        private dataSource: DataSource
     ) { }
 
-    async callExternalDocumentClassification(uploadedDocumentId: string): Promise<ExtractionJobDTO> {
-        let uploadedDocumentDTO = await this.uploadedDocumentsService.getUploadedDocument(uploadedDocumentId);
+    async callExternalDocumentClassification(uploadedDocumentId: string): Promise<UploadedDocumentDTO> {
+        let uploadedDocument = await this.uploadedDocumentsService.findUploadedDocumentEntity(uploadedDocumentId);
+        uploadedDocument.status = UploadedDocumentStatus.CLASSIFYING;
 
-        let dto = new NewExtractionJobRequestDTO();
-        dto.uploadedDocumentId = uploadedDocumentId;
-        dto.documentBase64 = uploadedDocumentDTO.documentBase64;
-        dto.documentType = uploadedDocumentDTO.documentType;
-        dto.extractionJobType = ExtractionJobType.CLASSIFICATION;
-        const entity = await this.createNewExtractionJob(dto);
+        ////////////////////set extraction job
+        let extractionJob = new ExtractionJob;
+        extractionJob.uploadedDocumentId = uploadedDocumentId;
 
-        await this.kafkaProducerService.produce(UploadedDocumentKafkaTopics.CLASSIFICATION, { uploadedDocumentId });
+        const templateId = await this.lookupTemplateId(uploadedDocument.documentType, ExtractionJobType.CLASSIFICATION);
+        extractionJob.externalExtractionJobTemplateId = templateId;
 
-        await this.uploadedDocumentsService.updateStatus(uploadedDocumentId, UploadedDocumentStatus.CLASSIFYING);
+        //ACID transaction: call extraction api +  publish DOCUMENT_SUBMITTED event + save record
+        return await this.dataSource.transaction(async (entityManager) => {
+            extractionJob.externalExtractionJobIdentifier = await this.callExternalExtractionAPI(uploadedDocument.documentBase64, uploadedDocumentId);
 
-        return this.entityToDTO(entity);
+            if (!uploadedDocument.extractionJobs)
+                uploadedDocument.extractionJobs = [];
+            uploadedDocument.extractionJobs.push(extractionJob);
+
+            uploadedDocument = await entityManager.save(uploadedDocument)
+                .catch((error) => {
+                    this.logger.error(error.stack);
+                    throw new InternalServerErrorException("update uploadedDocument not available");
+                });
+
+            await this.kafkaProducerService.produce(UploadedDocumentKafkaTopics.DOCUMENT_SUBMITTED, {
+                uploadedDocumentId: uploadedDocument.uploadedDocumentId
+            });
+
+            return this.uploadedDocumentsService.entityToDTO(uploadedDocument);
+        });
     }
 
-    async callExternalQuickValidation(uploadedDocumentId: string): Promise<ExtractionJobDTO> {
-        let uploadedDocumentDTO = await this.uploadedDocumentsService.getUploadedDocument(uploadedDocumentId);
+    async callExternalQuickValidation(uploadedDocumentId: string): Promise<UploadedDocumentDTO> {
+        let uploadedDocument = await this.uploadedDocumentsService.findUploadedDocumentEntity(uploadedDocumentId);
 
-        let dto = new NewExtractionJobRequestDTO();
-        dto.uploadedDocumentId = uploadedDocumentId;
-        dto.documentBase64 = uploadedDocumentDTO.documentBase64;
-        dto.documentType = uploadedDocumentDTO.documentType;
-        dto.extractionJobType = ExtractionJobType.CLASSIFICATION;
-        const entity = await this.createNewExtractionJob(dto);
+        ////////////////////set extraction job
+        let extractionJob = new ExtractionJob;
+        extractionJob.uploadedDocumentId = uploadedDocumentId;
 
-        await this.kafkaProducerService.produce(UploadedDocumentKafkaTopics.QUICK_VALIDATION, { uploadedDocumentId });
+        const templateId = await this.lookupTemplateId(uploadedDocument.documentType, ExtractionJobType.CLASSIFICATION);
+        extractionJob.externalExtractionJobTemplateId = templateId;
 
-        await this.uploadedDocumentsService.updateStatus(uploadedDocumentId, UploadedDocumentStatus.VALIDATING);
+        //ACID transaction: call extraction api +  publish QUICK_VALIDATION event + save record
+        return await this.dataSource.transaction(async (entityManager) => {
+            await this.kafkaProducerService.produce(UploadedDocumentKafkaTopics.QUICK_VALIDATION, { uploadedDocumentId });
 
-        return this.entityToDTO(entity);
+            extractionJob.externalExtractionJobIdentifier = await this.callExternalExtractionAPI(uploadedDocument.documentBase64, uploadedDocumentId);
+
+            if (!uploadedDocument.extractionJobs)
+                uploadedDocument.extractionJobs = [];
+            uploadedDocument.extractionJobs.push(extractionJob);
+
+            uploadedDocument = await entityManager.save(uploadedDocument)
+                .catch((error) => {
+                    this.logger.error(error.stack);
+                    throw new InternalServerErrorException("update uploadedDocument not available");
+                });
+
+            return this.uploadedDocumentsService.entityToDTO(uploadedDocument);
+        });
     }
 
-    async callExternalDetailExtraction(uploadedDocumentId: string): Promise<ExtractionJobDTO> {
+    /*async callExternalDetailExtraction(uploadedDocumentId: string): Promise<ExtractionJobDTO> {
         let uploadedDocumentDTO = await this.uploadedDocumentsService.getUploadedDocument(uploadedDocumentId);
 
         let dto = new NewExtractionJobRequestDTO();
@@ -118,17 +149,7 @@ export class ExtractionJobsService {
 
         //todo validation of extraction result
         //todo populate actor asset
-    }
-
-    async searchExtractionJobs(dto: SearchExtractionJobsRequestDTO): Promise<ExtractionJob[]> {
-        let entities = await this.entityRepository.find({ where: { uploadedDocumentId: dto.uploadedDocumentId } })
-            .catch((error) => {
-                this.logger.error(error.stack);
-                throw new InternalServerErrorException("searchExtractionJobs() not available");
-            });
-
-        return entities;
-    }
+    }*/
 
     private async lookupTemplateId(uploadedDocumentType: UploadedDocumentType, extractionJobType: ExtractionJobType): Promise<string> {
         const templates = [
@@ -168,16 +189,4 @@ export class ExtractionJobsService {
     private async callExternalExtractionAPI(documentBase64: string, templateId: string): Promise<string> {
         return randomUUID();
     }
-
-    private entityToDTO(entity: ExtractionJob) {
-        let dto = new ExtractionJobDTO();
-        dto.extractionJobId = entity.extractionJobId;
-        dto.uploadedDocumentId = entity.uploadedDocumentId;
-        dto.extractionJobTemplateId = entity.uploadedDocumentId;
-        dto.uploadedAt = entity.createdAt;
-        dto.extractionResult = entity.extractionResult;
-
-        return dto;
-    }
-
 }
