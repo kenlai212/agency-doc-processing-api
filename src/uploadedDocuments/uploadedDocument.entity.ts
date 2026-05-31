@@ -1,5 +1,7 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { BeforeInsert, Column, CreateDateColumn, Entity, Generated, ObjectIdColumn, UpdateDateColumn } from "typeorm";
 import { ExtractionJob } from "../extractionJobs/extractionJob.entity";
+import { ObjectId } from "mongodb";
+import { randomUUID } from "crypto";
 
 export enum UploadedDocumentType {
     CERTIFICATION_PROOF = "CERTIFICATION_PROOF",
@@ -28,8 +30,20 @@ export enum UploadedDocumentStatus {
 
 @Entity()
 export class UploadedDocument {
-    @PrimaryGeneratedColumn('uuid')
+    @ObjectIdColumn()
+    id: ObjectId;
+
+    @Column({
+        nullable: false
+    })
     uploadedDocumentId: string;
+
+    @BeforeInsert()
+    generateUploadedDocumentId() {
+        if (!this.uploadedDocumentId) {
+            this.uploadedDocumentId = randomUUID();
+        }
+    }
 
     @CreateDateColumn({ type: "timestamp", default: () => "CURRENT_TIMESTAMP(6)" })
     createdAt: Date;
@@ -85,6 +99,6 @@ export class UploadedDocument {
     })
     status: UploadedDocumentStatus;
 
-    @Column(() => ExtractionJob)
+    @Column({ type: "jsonb", array: true })
     extractionJobs: ExtractionJob[];
 }

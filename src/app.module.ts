@@ -5,11 +5,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import configuration from './app.config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UploadedDocument } from './uploadedDocuments/uploadedDocument.entity';
-import { ExtractionJob } from './extractionJobs/extractionJob.entity';
 import { UploadedDocumentsModule } from './uploadedDocuments/uploadedDocuments.module';
 import { ExtractionJobsModule } from './extractionJobs/extractionJobs.module';
 import { KafkaConsumersModule } from './kafkaConsumers/kafka.consumers.module';
-import { ClientsModule, Transport } from '@nestjs/microservices';
 
 @Module({
   providers: [
@@ -48,8 +46,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
         type: 'mongodb',
         url: 'mongodb://ken:Maxsteel1596@127.0.0.1:27017/agency-doc-processing-api?authSource=admin',
         entities: [
-          UploadedDocument,
-          ExtractionJob
+          UploadedDocument
         ],
         synchronize: true,
         useUnifiedTopology: true,

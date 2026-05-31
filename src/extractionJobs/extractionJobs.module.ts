@@ -1,16 +1,15 @@
 import { Module } from "@nestjs/common";
-import { TypeOrmModule } from "@nestjs/typeorm";
 import { ExtractionJobsService } from "./extractionJobs.service";
-import { ExtractionJob } from "./extractionJob.entity";
 import { ClientsModule, Transport } from "@nestjs/microservices";
 import { ExtractionJobsProducerService } from "./extractionJobs.producer";
 import { ConfigService } from "@nestjs/config";
-import { ExtractionJobsController } from "./extractionJobs.controller";
 import { UploadedDocumentsModule } from "../uploadedDocuments/uploadedDocuments.module";
+import { UploadedDocument } from "../uploadedDocuments/uploadedDocument.entity";
+import { TypeOrmModule } from "@nestjs/typeorm";
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([ExtractionJob]),
+        TypeOrmModule.forFeature([UploadedDocument]),
         ClientsModule.registerAsync([
             {
                 name: 'EXTRACT_JOBS_PRODUCER_SERVICE',
@@ -34,9 +33,6 @@ import { UploadedDocumentsModule } from "../uploadedDocuments/uploadedDocuments.
             },
         ]),
         UploadedDocumentsModule
-    ],
-    controllers: [
-        ExtractionJobsController
     ],
     providers: [
         ExtractionJobsService, ExtractionJobsProducerService

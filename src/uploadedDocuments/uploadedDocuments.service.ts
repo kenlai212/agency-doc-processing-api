@@ -166,14 +166,17 @@ export class UploadedDocumentsService {
         dto.status = entity.status;
         dto.documentBase64 = entity.documentBase64;
 
-        dto.extractionJobs = []
-        entity.extractionJobs.forEach(element => {
-            let edto = new ExtractionJobDTO();
-            edto.extractionJobId = element.extractionJobId;
-            edto.extractionJobTemplateId = element.externalExtractionJobTemplateId;
-            edto.uploadedAt = element.createdAt;
-            edto.extractionResult = element.extractionResult;
-        });
+        if (entity.extractionJobs && entity.extractionJobs.length > 0) {
+            dto.extractionJobs = []
+            entity.extractionJobs.forEach(element => {
+                let edto = new ExtractionJobDTO();
+                edto.extractionJobId = element.extractionJobId;
+                edto.extractionJobTemplateId = element.externalExtractionJobTemplateId;
+                edto.uploadedAt = element.createdAt;
+                edto.extractionResult = element.extractionResult;
+            });
+        }
+
 
         return dto;
     }

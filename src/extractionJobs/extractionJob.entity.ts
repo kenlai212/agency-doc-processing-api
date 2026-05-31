@@ -1,21 +1,24 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { randomUUID } from "crypto";
+import { BeforeInsert, Column, CreateDateColumn, Generated, UpdateDateColumn } from "typeorm";
 
 export class ExtractionJob {
-    @PrimaryGeneratedColumn('uuid')
+    @Column({
+        nullable: false,
+    })
     extractionJobId: string;
+
+    @BeforeInsert()
+    generateExtractionJobId() {
+        if (!this.extractionJobId) {
+            this.extractionJobId = randomUUID();
+        }
+    }
 
     @CreateDateColumn({ type: "timestamp", default: () => "CURRENT_TIMESTAMP(6)" })
     createdAt: Date;
 
     @UpdateDateColumn({ type: "timestamp", default: () => "CURRENT_TIMESTAMP(6)", onUpdate: "CURRENT_TIMESTAMP(6)" })
     updatedAt: Date;
-
-    @Column({
-        nullable: false,
-        type: "varchar",
-        length: 36
-    })
-    uploadedDocumentId: string;
 
     @Column({
         nullable: false,

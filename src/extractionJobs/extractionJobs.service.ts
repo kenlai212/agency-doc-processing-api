@@ -6,8 +6,8 @@ import { randomUUID } from 'crypto';
 import { ExtractionJobsProducerService, UploadedDocumentKafkaTopics } from "./extractionJobs.producer";
 import { UploadedDocument, UploadedDocumentStatus, UploadedDocumentType } from "../uploadedDocuments/uploadedDocument.entity";
 import { UploadedDocumentsService } from "../uploadedDocuments/uploadedDocuments.service";
-import { DataSource } from "typeorm/browser";
 import { UploadedDocumentDTO } from "../uploadedDocuments/uploadedDocuments.dtos";
+import { DataSource } from "typeorm";
 
 export enum ExtractionJobType {
     CLASSIFICATION = "CLASSIFICATION",
@@ -20,8 +20,6 @@ export class ExtractionJobsService {
     readonly logger: Logger = new Logger(this.constructor.name)
 
     constructor(
-        @InjectRepository(ExtractionJob)
-        private readonly entityRepository: Repository<UploadedDocument>,
         private readonly kafkaProducerService: ExtractionJobsProducerService,
         private readonly uploadedDocumentsService: UploadedDocumentsService,
         private dataSource: DataSource
@@ -33,7 +31,6 @@ export class ExtractionJobsService {
 
         ////////////////////set extraction job
         let extractionJob = new ExtractionJob;
-        extractionJob.uploadedDocumentId = uploadedDocumentId;
 
         const templateId = await this.lookupTemplateId(uploadedDocument.documentType, ExtractionJobType.CLASSIFICATION);
         extractionJob.externalExtractionJobTemplateId = templateId;
@@ -65,7 +62,6 @@ export class ExtractionJobsService {
 
         ////////////////////set extraction job
         let extractionJob = new ExtractionJob;
-        extractionJob.uploadedDocumentId = uploadedDocumentId;
 
         const templateId = await this.lookupTemplateId(uploadedDocument.documentType, ExtractionJobType.CLASSIFICATION);
         extractionJob.externalExtractionJobTemplateId = templateId;
@@ -90,24 +86,36 @@ export class ExtractionJobsService {
         });
     }
 
-    /*async callExternalDetailExtraction(uploadedDocumentId: string): Promise<ExtractionJobDTO> {
-        let uploadedDocumentDTO = await this.uploadedDocumentsService.getUploadedDocument(uploadedDocumentId);
+    async callExternalDetailExtraction(uploadedDocumentId: string): Promise<UploadedDocumentDTO> {
+        let uploadedDocument = await this.uploadedDocumentsService.findUploadedDocumentEntity(uploadedDocumentId);
 
-        let dto = new NewExtractionJobRequestDTO();
-        dto.uploadedDocumentId = uploadedDocumentId;
-        dto.documentBase64 = uploadedDocumentDTO.documentBase64;
-        dto.documentType = uploadedDocumentDTO.documentType;
-        dto.extractionJobType = ExtractionJobType.CLASSIFICATION;
-        const entity = await this.createNewExtractionJob(dto);
+        ////////////////////set extraction job
+        let extractionJob = new ExtractionJob;
 
-        await this.kafkaProducerService.produce(UploadedDocumentKafkaTopics.DATA_EXTRACTION, { uploadedDocumentId });
+        const templateId = await this.lookupTemplateId(uploadedDocument.documentType, ExtractionJobType.CLASSIFICATION);
+        extractionJob.externalExtractionJobTemplateId = templateId;
 
-        await this.uploadedDocumentsService.updateStatus(uploadedDocumentId, UploadedDocumentStatus.EXTRACTING);
+        //ACID transaction: call extraction api +  publish QUICK_VALIDATION event + save record
+        return await this.dataSource.transaction(async (entityManager) => {
+            await this.kafkaProducerService.produce(UploadedDocumentKafkaTopics.DATA_EXTRACTION, { uploadedDocumentId });
 
-        return this.entityToDTO(entity);
+            extractionJob.externalExtractionJobIdentifier = await this.callExternalExtractionAPI(uploadedDocument.documentBase64, uploadedDocumentId);
+
+            if (!uploadedDocument.extractionJobs)
+                uploadedDocument.extractionJobs = [];
+            uploadedDocument.extractionJobs.push(extractionJob);
+
+            uploadedDocument = await entityManager.save(uploadedDocument)
+                .catch((error) => {
+                    this.logger.error(error.stack);
+                    throw new InternalServerErrorException("update uploadedDocument not available");
+                });
+
+            return this.uploadedDocumentsService.entityToDTO(uploadedDocument);
+        });
     }
 
-    async createNewExtractionJob(dto: NewExtractionJobRequestDTO): Promise<ExtractionJob> {
+    /*async createNewExtractionJob(dto: NewExtractionJobRequestDTO): Promise<ExtractionJob> {
         let entity = new ExtractionJob();
         entity.uploadedDocumentId = dto.uploadedDocumentId;
 
