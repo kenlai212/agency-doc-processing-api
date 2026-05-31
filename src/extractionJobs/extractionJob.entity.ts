@@ -7,13 +7,6 @@ export class ExtractionJob {
     })
     extractionJobId: string;
 
-    @BeforeInsert()
-    generateExtractionJobId() {
-        if (!this.extractionJobId) {
-            this.extractionJobId = randomUUID();
-        }
-    }
-
     @CreateDateColumn({ type: "timestamp", default: () => "CURRENT_TIMESTAMP(6)" })
     createdAt: Date;
 

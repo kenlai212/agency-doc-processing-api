@@ -104,16 +104,14 @@ export class SearchUploadedDocumentsRequestDTO {
     actorId: string;
 
     @ApiPropertyOptional({
-        description: `Uploaded Date search range start`,
-        example: `2026-05-01`
+        description: `Uploaded Date search range start e.g 2026-05-01`
     })
     @IsDateString()
     @IsOptional()
     searchRangeStart: Date;
 
     @ApiPropertyOptional({
-        description: `Uploaded Date search range end`,
-        example: `2026-05-01`
+        description: `Uploaded Date search range end e.g 2026-05-30`
     })
     @IsDateString()
     @IsOptional()

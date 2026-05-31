@@ -174,6 +174,7 @@ export class UploadedDocumentsService {
                 edto.extractionJobTemplateId = element.externalExtractionJobTemplateId;
                 edto.uploadedAt = element.createdAt;
                 edto.extractionResult = element.extractionResult;
+                dto.extractionJobs.push(edto)
             });
         }
 

@@ -6,6 +6,7 @@ import { ConfigService } from "@nestjs/config";
 import { UploadedDocumentsModule } from "../uploadedDocuments/uploadedDocuments.module";
 import { UploadedDocument } from "../uploadedDocuments/uploadedDocument.entity";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { ExtractionJobsController } from "./extractionJobs.controller";
 
 @Module({
     imports: [
@@ -33,6 +34,9 @@ import { TypeOrmModule } from "@nestjs/typeorm";
             },
         ]),
         UploadedDocumentsModule
+    ],
+    controllers: [
+        ExtractionJobsController
     ],
     providers: [
         ExtractionJobsService, ExtractionJobsProducerService
