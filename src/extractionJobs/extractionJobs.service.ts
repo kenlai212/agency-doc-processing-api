@@ -1,10 +1,8 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import { ExtractionJob } from "./extractionJob.entity";
 import { randomUUID } from 'crypto';
 import { ExtractionJobsProducerService, UploadedDocumentKafkaTopics } from "./extractionJobs.producer";
-import { UploadedDocument, UploadedDocumentStatus, UploadedDocumentType } from "../uploadedDocuments/uploadedDocument.entity";
+import { UploadedDocumentType } from "../uploadedDocuments/uploadedDocument.entity";
 import { UploadedDocumentsService } from "../uploadedDocuments/uploadedDocuments.service";
 import { UploadedDocumentDTO } from "../uploadedDocuments/uploadedDocuments.dtos";
 import { DataSource } from "typeorm";
@@ -69,27 +67,27 @@ export class ExtractionJobsService {
         });
     }
 
-    /*async updateExtractionResult(externalExtractionJobIdentifier: string, extractionResult: JSON) {
-        let entity = await this.entityRepository.findOne({ where: { externalExtractionJobIdentifier } })
-            .catch((error) => {
-                this.logger.error(error.stack);
-                throw new InternalServerErrorException("updateSymanticsData() not available");
-            });
+    async updateExtractionResult(uploadedDocumentId: string, externalExtractionJobIdentifier: string, extractionResult: JSON) {
+        let uploadedDocument = await this.uploadedDocumentsService.findUploadedDocumentEntity(uploadedDocumentId);
 
-        if (!entity)
-            throw new BadRequestException(`Invalid externalExtractionJobIdentifier: ${externalExtractionJobIdentifier}`);
+        let matchingJob = uploadedDocument.extractionJobs.find(job => job.externalExtractionJobIdentifier === externalExtractionJobIdentifier);
 
-        entity.extractionResult = extractionResult;
+        if (!matchingJob)
+            throw new BadRequestException(`No matching extraction job for identifier ${externalExtractionJobIdentifier}`);
 
-        await this.entityRepository.save(entity)
-            .catch((error) => {
-                this.logger.error(error.stack);
-                throw new InternalServerErrorException("createNewSymanticsData() not available");
-            });
+        await this.callExternalValidationAPI(extractionResult);
+        matchingJob.extractionResult = extractionResult;
 
-        //todo validation of extraction result
+        return await this.dataSource.transaction(async (entityManager) => {
+            uploadedDocument = await entityManager.save(uploadedDocument)
+                .catch((error) => {
+                    this.logger.error(error.stack);
+                    throw new InternalServerErrorException("update uploadedDocument not available");
+                });
+        });
+
         //todo populate actor asset
-    }*/
+    }
 
     private async lookupTemplateId(uploadedDocumentType: UploadedDocumentType, extractionJobType: ExtractionJobType): Promise<string> {
         const templates = [
@@ -148,6 +146,11 @@ export class ExtractionJobsService {
         this.logger.log(`Found matching template : ${JSON.stringify(template)}`);
 
         return template.templateId;
+    }
+
+    //call external validation API, expect validation result
+    private async callExternalValidationAPI(extractionResult: JSON): Promise<string> {
+        return "GOOD";
     }
 
     //call IDP API, expect IDP extractionJobIdentifier

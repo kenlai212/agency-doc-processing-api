@@ -22,4 +22,30 @@ export class ExtractionJobsController {
     async callExternalDocumentClassification(@Query() dto: ExtractionJobRequestDTO): Promise<UploadedDocumentDTO> {
         return await this.extractionJobsService.callExternalDetailExtraction(dto.uploadedDocumentId);
     }
+
+    @Post("/quick-validation")
+    @ApiOperation({
+        summary: 'Trigger Quick Validation Job',
+        description: `This will trigger an event to call external IDP API for Quick Validation`
+    })
+    @ApiOkResponse({
+        description: 'Successfully POST response UploadedDocumentDTO',
+        type: UploadedDocumentDTO,
+    })
+    async callExternalQuickValidation(@Query() dto: ExtractionJobRequestDTO): Promise<UploadedDocumentDTO> {
+        return await this.extractionJobsService.callExternalQuickValidation(dto.uploadedDocumentId);
+    }
+
+    @Post("/detail-extraction")
+    @ApiOperation({
+        summary: 'Trigger Detail Extraction Job',
+        description: `This will trigger an event to call external IDP API for Detail Extraction`
+    })
+    @ApiOkResponse({
+        description: 'Successfully POST response UploadedDocumentDTO',
+        type: UploadedDocumentDTO,
+    })
+    async callExternalDetailExtraction(@Query() dto: ExtractionJobRequestDTO): Promise<UploadedDocumentDTO> {
+        return await this.extractionJobsService.callExternalDetailExtraction(dto.uploadedDocumentId);
+    }
 }
